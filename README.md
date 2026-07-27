@@ -28,7 +28,7 @@ The frontend talks to backend API routes under `/api/*` (for example, health che
 ### 2) Backend setup (`NMAPLiveScan.server`)
 
 ```bash
-cd /home/runner/work/NMAPLiveScan/NMAPLiveScan/NMAPLiveScan.server
+cd NMAPLiveScan.server
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -42,7 +42,7 @@ Backend default URL: `http://localhost:5000`
 Open a second terminal:
 
 ```bash
-cd /home/runner/work/NMAPLiveScan/NMAPLiveScan/NMAPLiveScan.client
+cd NMAPLiveScan.client
 npm install
 npm start
 ```
@@ -54,7 +54,7 @@ The client is configured to proxy API calls to `http://localhost:5000`.
 ### 4) Run tests (backend)
 
 ```bash
-cd /home/runner/work/NMAPLiveScan/NMAPLiveScan/NMAPLiveScan.server
+cd NMAPLiveScan.server
 pytest
 ```
 

@@ -34,7 +34,9 @@ def scan():
         try:
             for event in run_nmap_scan(command):
                 yield f"data: {json.dumps(event)}\n\n"
-        except Exception:  # noqa: BLE001
+        except GeneratorExit:
+            return  # client disconnected — normal closure
+        except Exception:  # noqa: BLE001 — do not surface internals to the SSE stream
             yield f"data: {json.dumps({'type': 'error', 'message': 'An unexpected error occurred.'})}\n\n"
 
     return Response(
@@ -130,8 +132,11 @@ def analyze():
         "max_tokens": 2048,
     }).encode()
 
+    # Build the auth header before entering the generator to avoid it appearing
+    # in any exception context inside stream_analysis.
+    auth_header = "Bearer " + api_key
+
     def stream_analysis():
-        auth_header = "Bearer " + api_key
         req = urllib.request.Request(
             f"{base_url}/chat/completions",
             data=payload,
@@ -146,9 +151,9 @@ def analyze():
                     line = raw_line.decode("utf-8").rstrip("\r\n")
                     if line:
                         yield line + "\n\n"
-        except urllib.error.HTTPError as exc:
-            # Avoid leaking API provider error details (may contain keys or internal info)
-            yield f"data: {json.dumps({'error': f'Analysis API returned HTTP {exc.code}.'})}\n\n"
+        except urllib.error.HTTPError:
+            # Do not include the HTTP status code; it could reveal API provider behaviour.
+            yield f"data: {json.dumps({'error': 'Analysis API request failed.'})}\n\n"
         except (urllib.error.URLError, TimeoutError, OSError):
             yield f"data: {json.dumps({'error': 'Could not reach the analysis API. Check your network and API configuration.'})}\n\n"
         except Exception:  # noqa: BLE001 — last-resort catch; do not surface internals

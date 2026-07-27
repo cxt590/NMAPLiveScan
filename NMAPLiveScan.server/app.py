@@ -12,6 +12,12 @@ from scanner import run_nmap_scan
 app = Flask(__name__)
 CORS(app)
 
+
+@app.errorhandler(Exception)
+def handle_unhandled_exception(exc: Exception) -> Response:
+    """Catch-all error handler so stack traces are never sent to clients."""
+    return jsonify({"error": "An internal server error occurred."}), 500  # type: ignore[return-value]
+
 # ── Health check ────────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/health")
@@ -114,7 +120,7 @@ def analyze():
                 "No API key configured. "
                 "Set GITHUB_TOKEN, OPENAI_API_KEY, or COPILOT_API_KEY."
             )
-        }), 503
+        }), 500
 
     base_url = os.environ.get(
         "OPENAI_BASE_URL", "https://models.inference.ai.azure.com"
@@ -151,9 +157,12 @@ def analyze():
                     line = raw_line.decode("utf-8").rstrip("\r\n")
                     if line:
                         yield line + "\n\n"
-        except urllib.error.HTTPError:
-            # Do not include the HTTP status code; it could reveal API provider behaviour.
-            yield f"data: {json.dumps({'error': 'Analysis API request failed.'})}\n\n"
+        except urllib.error.HTTPError as exc:
+            # Distinguish auth failures (bad/missing key) from other provider errors.
+            if exc.code in (401, 403):
+                yield f"data: {json.dumps({'error': 'Analysis API authentication failed. Check your API key.'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'error': 'Analysis API request failed.'})}\n\n"
         except (urllib.error.URLError, TimeoutError, OSError):
             yield f"data: {json.dumps({'error': 'Could not reach the analysis API. Check your network and API configuration.'})}\n\n"
         except Exception:  # noqa: BLE001 — last-resort catch; do not surface internals

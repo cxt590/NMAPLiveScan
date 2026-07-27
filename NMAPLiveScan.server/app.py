@@ -31,8 +31,11 @@ def scan():
         return jsonify({"error": "No command provided"}), 400
 
     def generate():
-        for event in run_nmap_scan(command):
-            yield f"data: {json.dumps(event)}\n\n"
+        try:
+            for event in run_nmap_scan(command):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception:  # noqa: BLE001
+            yield f"data: {json.dumps({'type': 'error', 'message': 'An unexpected error occurred.'})}\n\n"
 
     return Response(
         generate(),
@@ -96,6 +99,9 @@ def analyze():
         return jsonify({"error": "No scan data provided"}), 400
 
     api_key = (
+        # GITHUB_TOKEN: GitHub Models / Copilot API (https://models.inference.ai.azure.com)
+        # OPENAI_API_KEY: OpenAI API (https://api.openai.com)
+        # COPILOT_API_KEY: any other OpenAI-compatible provider set via OPENAI_BASE_URL
         os.environ.get("GITHUB_TOKEN")
         or os.environ.get("OPENAI_API_KEY")
         or os.environ.get("COPILOT_API_KEY")
@@ -141,10 +147,12 @@ def analyze():
                     if line:
                         yield line + "\n\n"
         except urllib.error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")
-            yield f"data: {json.dumps({'error': f'HTTP {exc.code}: {body}'})}\n\n"
-        except Exception as exc:  # noqa: BLE001
-            yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+            # Avoid leaking API provider error details (may contain keys or internal info)
+            yield f"data: {json.dumps({'error': f'Analysis API returned HTTP {exc.code}.'})}\n\n"
+        except (urllib.error.URLError, TimeoutError, OSError):
+            yield f"data: {json.dumps({'error': 'Could not reach the analysis API. Check your network and API configuration.'})}\n\n"
+        except Exception:  # noqa: BLE001 — last-resort catch; do not surface internals
+            yield f"data: {json.dumps({'error': 'An unexpected error occurred during analysis.'})}\n\n"
 
     return Response(
         stream_analysis(),

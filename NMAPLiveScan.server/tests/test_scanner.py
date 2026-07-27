@@ -116,87 +116,63 @@ MINIMAL_XML = textwrap.dedent("""\
     """)
 
 
+@pytest.fixture()
+def minimal_xml_path():
+    """Write MINIMAL_XML to a temporary file and clean it up after the test."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".xml", delete=False, mode="w")
+    tmp.write(MINIMAL_XML)
+    tmp.close()
+    yield tmp.name
+    os.unlink(tmp.name)
+
+
 class TestParseNmapXml:
 
-    def _write_xml(self, content: str) -> str:
-        tmp = tempfile.NamedTemporaryFile(suffix=".xml", delete=False, mode="w")
-        tmp.write(content)
-        tmp.close()
-        return tmp.name
-
-    def test_top_level_keys(self):
-        path = self._write_xml(MINIMAL_XML)
-        try:
-            result = parse_nmap_xml(path)
-        finally:
-            os.unlink(path)
+    def test_top_level_keys(self, minimal_xml_path):
+        result = parse_nmap_xml(minimal_xml_path)
         assert result["scanner"] == "nmap"
         assert result["version"] == "7.94"
         assert "hosts" in result
         assert "scan_info" in result
         assert "run_stats" in result
 
-    def test_host_parsed(self):
-        path = self._write_xml(MINIMAL_XML)
-        try:
-            result = parse_nmap_xml(path)
-        finally:
-            os.unlink(path)
+    def test_host_parsed(self, minimal_xml_path):
+        result = parse_nmap_xml(minimal_xml_path)
         assert len(result["hosts"]) == 1
         host = result["hosts"][0]
         assert host["status"] == "up"
         assert any(a["addr"] == "127.0.0.1" for a in host["addresses"])
         assert any(hn["name"] == "localhost" for hn in host["hostnames"])
 
-    def test_ports_parsed(self):
-        path = self._write_xml(MINIMAL_XML)
-        try:
-            result = parse_nmap_xml(path)
-        finally:
-            os.unlink(path)
+    def test_ports_parsed(self, minimal_xml_path):
+        result = parse_nmap_xml(minimal_xml_path)
         ports = result["hosts"][0]["ports"]
         assert len(ports) == 2
         port_ids = {p["portid"] for p in ports}
         assert "22" in port_ids
         assert "80" in port_ids
 
-    def test_service_parsed(self):
-        path = self._write_xml(MINIMAL_XML)
-        try:
-            result = parse_nmap_xml(path)
-        finally:
-            os.unlink(path)
+    def test_service_parsed(self, minimal_xml_path):
+        result = parse_nmap_xml(minimal_xml_path)
         ssh_port = next(p for p in result["hosts"][0]["ports"] if p["portid"] == "22")
         assert ssh_port["service"]["name"] == "ssh"
         assert ssh_port["service"]["product"] == "OpenSSH"
 
-    def test_os_parsed(self):
-        path = self._write_xml(MINIMAL_XML)
-        try:
-            result = parse_nmap_xml(path)
-        finally:
-            os.unlink(path)
+    def test_os_parsed(self, minimal_xml_path):
+        result = parse_nmap_xml(minimal_xml_path)
         os_list = result["hosts"][0]["os"]
         assert len(os_list) == 1
         assert "Linux" in os_list[0]["name"]
         assert os_list[0]["accuracy"] == "95"
 
-    def test_run_stats_parsed(self):
-        path = self._write_xml(MINIMAL_XML)
-        try:
-            result = parse_nmap_xml(path)
-        finally:
-            os.unlink(path)
+    def test_run_stats_parsed(self, minimal_xml_path):
+        result = parse_nmap_xml(minimal_xml_path)
         stats = result["run_stats"]
         assert stats["hosts_up"] == "1"
         assert stats["elapsed"] == "1.23"
 
-    def test_scan_info_parsed(self):
-        path = self._write_xml(MINIMAL_XML)
-        try:
-            result = parse_nmap_xml(path)
-        finally:
-            os.unlink(path)
+    def test_scan_info_parsed(self, minimal_xml_path):
+        result = parse_nmap_xml(minimal_xml_path)
         assert len(result["scan_info"]) == 1
         si = result["scan_info"][0]
         assert si["type"] == "connect"

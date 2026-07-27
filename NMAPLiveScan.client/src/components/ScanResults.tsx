@@ -70,7 +70,7 @@ export default function ScanResults({ results }: ScanResultsProps) {
             <Server size={12} /> {hosts.length} host{hosts.length !== 1 ? "s" : ""} discovered
           </div>
           {hosts.map((host, i) => (
-            <HostCard key={i} host={host} index={i} />
+            <HostCard key={i} host={host} />
           ))}
         </div>
       )}

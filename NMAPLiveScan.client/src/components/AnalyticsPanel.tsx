@@ -35,9 +35,12 @@ interface CopyButtonProps {
 function CopyButton({ text }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    void navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {
+      console.warn("Clipboard write failed");
+    });
   };
   return (
     <button onClick={copy} className="text-terminal-muted hover:text-white transition-colors p-0.5" title="Copy">

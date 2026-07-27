@@ -60,23 +60,16 @@ export function useAnalytics() {
             if (data === "[DONE]") break;
             try {
               const parsed = JSON.parse(data) as StreamChunk;
+              if (parsed.error) throw new Error(parsed.error);
               const delta = parsed.choices?.[0]?.delta?.content ?? "";
               if (delta) {
                 fullText += delta;
                 setRawStream(fullText);
               }
-              if (parsed.error) throw new Error(parsed.error);
             } catch (e) {
-              if (e instanceof Error && e.message !== "Unexpected end of JSON input") {
-                // Only re-throw genuine errors, not partial-JSON parse failures
-                const parsed = (() => {
-                  try {
-                    return JSON.parse(data) as StreamChunk;
-                  } catch {
-                    return null;
-                  }
-                })();
-                if (parsed?.error) throw e;
+              // Re-throw only genuine error objects, ignore partial JSON chunks
+              if (e instanceof Error && e.name !== "SyntaxError") {
+                throw e;
               }
             }
           }

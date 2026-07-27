@@ -10,10 +10,9 @@ const STATE_COLORS: Record<string, string> = {
 
 interface HostCardProps {
   host: NmapHost;
-  index: number;
 }
 
-export default function HostCard({ host, index: _index }: HostCardProps) {
+export default function HostCard({ host }: HostCardProps) {
   const [expanded, setExpanded] = useState(true);
   const [expandedPorts, setExpandedPorts] = useState<Record<string, boolean>>({});
 

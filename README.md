@@ -18,14 +18,14 @@ The frontend talks to backend API routes under `/api/*` (for example, health che
 
 ## Setup Instructions
 
-## 1) Prerequisites
+### 1) Prerequisites
 
 - Node.js 18+ (or 20+ recommended)
 - npm
 - Python 3.12+
 - `nmap` installed on the machine running the backend
 
-## 2) Backend setup (`NMAPLiveScan.server`)
+### 2) Backend setup (`NMAPLiveScan.server`)
 
 ```bash
 cd /home/runner/work/NMAPLiveScan/NMAPLiveScan/NMAPLiveScan.server
@@ -37,7 +37,7 @@ python app.py
 
 Backend default URL: `http://localhost:5000`
 
-## 3) Frontend setup (`NMAPLiveScan.client`)
+### 3) Frontend setup (`NMAPLiveScan.client`)
 
 Open a second terminal:
 
@@ -51,7 +51,7 @@ Frontend default URL: `http://localhost:3000`
 
 The client is configured to proxy API calls to `http://localhost:5000`.
 
-## 4) Run tests (backend)
+### 4) Run tests (backend)
 
 ```bash
 cd /home/runner/work/NMAPLiveScan/NMAPLiveScan/NMAPLiveScan.server
@@ -71,4 +71,3 @@ pytest
 
 ### Security and Legal
 - Scan only systems you own or have explicit written authorization to test.
-

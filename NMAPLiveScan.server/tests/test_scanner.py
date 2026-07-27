@@ -122,8 +122,10 @@ def minimal_xml_path():
     tmp = tempfile.NamedTemporaryFile(suffix=".xml", delete=False, mode="w")
     tmp.write(MINIMAL_XML)
     tmp.close()
-    yield tmp.name
-    os.unlink(tmp.name)
+    try:
+        yield tmp.name
+    finally:
+        os.unlink(tmp.name)
 
 
 class TestParseNmapXml:

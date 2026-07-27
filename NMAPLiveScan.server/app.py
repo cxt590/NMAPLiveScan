@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import shutil
 import urllib.request
@@ -11,11 +12,13 @@ from scanner import run_nmap_scan
 
 app = Flask(__name__)
 CORS(app)
+logger = logging.getLogger(__name__)
 
 
 @app.errorhandler(Exception)
 def handle_unhandled_exception(exc: Exception) -> Response:
     """Catch-all error handler so stack traces are never sent to clients."""
+    logger.exception("Unhandled exception in request %s", request.path)
     return jsonify({"error": "An internal server error occurred."}), 500  # type: ignore[return-value]
 
 # ── Health check ────────────────────────────────────────────────────────────────────────────────
@@ -42,7 +45,8 @@ def scan():
                 yield f"data: {json.dumps(event)}\n\n"
         except GeneratorExit:
             return  # client disconnected — normal closure
-        except Exception:  # noqa: BLE001 — do not surface internals to the SSE stream
+        except Exception:  # noqa: BLE001
+            logger.exception("Unexpected error during scan stream for command: %s", command)
             yield f"data: {json.dumps({'type': 'error', 'message': 'An unexpected error occurred.'})}\n\n"
 
     return Response(
@@ -160,12 +164,16 @@ def analyze():
         except urllib.error.HTTPError as exc:
             # Distinguish auth failures (bad/missing key) from other provider errors.
             if exc.code in (401, 403):
+                logger.warning("Analysis API auth failure (HTTP %s)", exc.code)
                 yield f"data: {json.dumps({'error': 'Analysis API authentication failed. Check your API key.'})}\n\n"
             else:
+                logger.warning("Analysis API HTTP error (HTTP %s)", exc.code)
                 yield f"data: {json.dumps({'error': 'Analysis API request failed.'})}\n\n"
         except (urllib.error.URLError, TimeoutError, OSError):
+            logger.exception("Could not reach analysis API at %s", base_url)
             yield f"data: {json.dumps({'error': 'Could not reach the analysis API. Check your network and API configuration.'})}\n\n"
         except Exception:  # noqa: BLE001 — last-resort catch; do not surface internals
+            logger.exception("Unexpected error in analysis stream")
             yield f"data: {json.dumps({'error': 'An unexpected error occurred during analysis.'})}\n\n"
 
     return Response(

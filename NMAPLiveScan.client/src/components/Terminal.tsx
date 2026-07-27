@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Terminal as TerminalIcon, X, Square } from "lucide-react";
+import type { TerminalLine, TerminalLineType } from "../types";
 
 const SUGGESTIONS = [
   "nmap -sV -p 80,443 scanme.nmap.org",
@@ -10,6 +11,16 @@ const SUGGESTIONS = [
   "nmap -p- --open -T4 scanme.nmap.org",
 ];
 
+interface TerminalProps {
+  lines: TerminalLine[];
+  isScanning: boolean;
+  onRun: (cmd: string) => void;
+  onCancel: () => void;
+  onClear: () => void;
+  externalInput?: string | null;
+  onExternalInputConsumed?: () => void;
+}
+
 export default function Terminal({
   lines,
   isScanning,
@@ -18,22 +29,20 @@ export default function Terminal({
   onClear,
   externalInput,
   onExternalInputConsumed,
-}) {
+}: TerminalProps) {
   const [input, setInput] = useState("nmap ");
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [suggestion, setSuggestion] = useState("");
-  const inputRef = useRef(null);
-  const outputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const outputRef = useRef<HTMLDivElement>(null);
 
-  // Receive commands pushed in from the profiles panel
   useEffect(() => {
     if (externalInput !== undefined && externalInput !== null) {
       setInput(externalInput);
       setSuggestion("");
       setTimeout(() => {
         inputRef.current?.focus();
-        // Move cursor to end
         const len = externalInput.length;
         inputRef.current?.setSelectionRange(len, len);
       }, 0);
@@ -51,7 +60,7 @@ export default function Terminal({
     if (inputRef.current) inputRef.current.focus();
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const cmd = input.trim();
     if (!cmd || isScanning) return;
@@ -62,7 +71,7 @@ export default function Terminal({
     setSuggestion("");
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();
       const idx = Math.min(historyIndex + 1, history.length - 1);
@@ -85,18 +94,18 @@ export default function Terminal({
     }
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInput(val);
     if (val.length > 5) {
       const match = SUGGESTIONS.find((s) => s.startsWith(val) && s !== val);
-      setSuggestion(match || "");
+      setSuggestion(match ?? "");
     } else {
       setSuggestion("");
     }
   };
 
-  const lineColor = (type) => {
+  const lineColor = (type: TerminalLineType): string => {
     switch (type) {
       case "command": return "text-terminal-cyan font-semibold";
       case "error":   return "text-terminal-red";

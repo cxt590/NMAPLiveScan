@@ -4,8 +4,16 @@ import {
   ChevronDown, ChevronRight, Terminal, Loader2,
   TriangleAlert, X, BadgeCheck, Copy, CheckCheck,
 } from "lucide-react";
+import type { Analysis, AnalysisFinding, NmapResults } from "../types";
 
-const SEVERITY_CONFIG = {
+interface SeverityConfig {
+  color: string;
+  border: string;
+  bg: string;
+  icon: React.ReactNode;
+}
+
+const SEVERITY_CONFIG: Record<string, SeverityConfig> = {
   Critical: { color: "text-red-400",    border: "border-red-800",    bg: "bg-red-900/20",    icon: <ShieldAlert size={13} /> },
   High:     { color: "text-orange-400", border: "border-orange-800", bg: "bg-orange-900/20", icon: <TriangleAlert size={13} /> },
   Medium:   { color: "text-yellow-400", border: "border-yellow-800", bg: "bg-yellow-900/20", icon: <AlertTriangle size={13} /> },
@@ -13,19 +21,26 @@ const SEVERITY_CONFIG = {
   Info:     { color: "text-terminal-muted", border: "border-terminal-border", bg: "bg-terminal-bg", icon: <Info size={13} /> },
 };
 
-function riskColor(score) {
+function riskColor(score: number): string {
   if (score >= 80) return "text-red-400";
   if (score >= 60) return "text-orange-400";
   if (score >= 40) return "text-yellow-400";
   return "text-terminal-green";
 }
 
-function CopyButton({ text }) {
+interface CopyButtonProps {
+  text: string;
+}
+
+function CopyButton({ text }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {
+      console.warn("Clipboard write failed");
+    });
   };
   return (
     <button onClick={copy} className="text-terminal-muted hover:text-white transition-colors p-0.5" title="Copy">
@@ -34,9 +49,14 @@ function CopyButton({ text }) {
   );
 }
 
-function FindingCard({ finding, onRunFollowUp }) {
+interface FindingCardProps {
+  finding: AnalysisFinding;
+  onRunFollowUp: (cmd: string) => void;
+}
+
+function FindingCard({ finding, onRunFollowUp }: FindingCardProps) {
   const [open, setOpen] = useState(false);
-  const cfg = SEVERITY_CONFIG[finding.severity] ?? SEVERITY_CONFIG.Info;
+  const cfg = SEVERITY_CONFIG[finding.severity] ?? SEVERITY_CONFIG["Info"];
 
   return (
     <div className={`border rounded-lg overflow-hidden ${cfg.border}`}>
@@ -62,10 +82,8 @@ function FindingCard({ finding, onRunFollowUp }) {
 
       {open && (
         <div className={`border-t ${cfg.border} px-3 py-3 space-y-3 ${cfg.bg}`}>
-          {/* Description */}
           <p className="text-xs text-gray-300 leading-relaxed">{finding.description}</p>
 
-          {/* Exploitation */}
           {finding.exploitation && (
             <div>
               <div className="text-[10px] uppercase text-terminal-muted font-semibold mb-1">Exploitation Approach</div>
@@ -73,8 +91,7 @@ function FindingCard({ finding, onRunFollowUp }) {
             </div>
           )}
 
-          {/* CVE hints */}
-          {finding.cve_hints?.filter(Boolean).length > 0 && (
+          {finding.cve_hints?.filter(Boolean).length ? (
             <div>
               <div className="text-[10px] uppercase text-terminal-muted font-semibold mb-1">CVE References</div>
               <div className="flex flex-wrap gap-1">
@@ -91,9 +108,8 @@ function FindingCard({ finding, onRunFollowUp }) {
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Follow-up command */}
           {finding.follow_up_command && (
             <div>
               <div className="text-[10px] uppercase text-terminal-muted font-semibold mb-1">Suggested Follow-up</div>
@@ -103,7 +119,7 @@ function FindingCard({ finding, onRunFollowUp }) {
                 </code>
                 <CopyButton text={finding.follow_up_command} />
                 <button
-                  onClick={() => onRunFollowUp(finding.follow_up_command)}
+                  onClick={() => onRunFollowUp(finding.follow_up_command!)}
                   className="text-[11px] px-2 py-0.5 bg-terminal-green text-black rounded font-semibold hover:bg-green-400 transition-colors shrink-0"
                 >
                   Run ▶
@@ -117,7 +133,20 @@ function FindingCard({ finding, onRunFollowUp }) {
   );
 }
 
-export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, analysis, error, onAnalyze, onCancel, onRunFollowUp }) {
+interface AnalyticsPanelProps {
+  scanResults: NmapResults | null;
+  isAnalyzing: boolean;
+  rawStream: string;
+  analysis: Analysis | null;
+  error: string | null;
+  onAnalyze: (results: NmapResults) => void;
+  onCancel: () => void;
+  onRunFollowUp: (cmd: string) => void;
+}
+
+export default function AnalyticsPanel({
+  scanResults, isAnalyzing, rawStream, analysis, error, onAnalyze, onCancel, onRunFollowUp,
+}: AnalyticsPanelProps) {
   const [filterSeverity, setFilterSeverity] = useState("All");
   const severities = ["All", "Critical", "High", "Medium", "Low", "Info"];
 
@@ -126,7 +155,7 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
     ? findings
     : findings.filter((f) => f.severity === filterSeverity);
 
-  const counts = findings.reduce((acc, f) => {
+  const counts = findings.reduce<Record<string, number>>((acc, f) => {
     acc[f.severity] = (acc[f.severity] ?? 0) + 1;
     return acc;
   }, {});
@@ -152,7 +181,6 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0 p-3 space-y-3">
-        {/* No scan loaded */}
         {!scanResults && !analysis && !isAnalyzing && (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-terminal-muted text-xs text-center px-4">
             <Brain size={28} className="opacity-20" />
@@ -160,7 +188,6 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
           </div>
         )}
 
-        {/* Analyze button */}
         {scanResults && !isAnalyzing && (
           <button
             onClick={() => onAnalyze(scanResults)}
@@ -171,7 +198,6 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
           </button>
         )}
 
-        {/* Streaming indicator */}
         {isAnalyzing && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs text-terminal-purple">
@@ -186,7 +212,6 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
           </div>
         )}
 
-        {/* Error */}
         {error && (
           <div className="border border-red-800 bg-red-900/20 rounded p-3 space-y-2">
             <div className="flex items-center gap-1 text-terminal-red text-xs font-semibold">
@@ -202,10 +227,8 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
           </div>
         )}
 
-        {/* Structured results */}
         {analysis && !isAnalyzing && (
           <div className="space-y-4">
-            {/* Risk score + summary */}
             <div className="bg-terminal-surface border border-terminal-border rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-terminal-muted uppercase font-semibold">Risk Score</span>
@@ -216,7 +239,6 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
                   {analysis.risk_score}
                 </span>
                 <span className="text-terminal-muted text-sm mb-1">/ 100</span>
-                {/* Mini bar */}
                 <div className="flex-1 h-2 bg-terminal-bg rounded-full overflow-hidden mb-2">
                   <div
                     className={`h-full rounded-full transition-all ${
@@ -230,10 +252,9 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
               </div>
               <p className="text-xs text-gray-300 leading-relaxed">{analysis.summary}</p>
 
-              {/* Finding counts */}
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {Object.entries(counts).map(([sev, n]) => {
-                  const cfg = SEVERITY_CONFIG[sev] ?? SEVERITY_CONFIG.Info;
+                  const cfg = SEVERITY_CONFIG[sev] ?? SEVERITY_CONFIG["Info"];
                   return (
                     <span key={sev} className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${cfg.color} ${cfg.border} ${cfg.bg}`}>
                       {n} {sev}
@@ -243,7 +264,6 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
               </div>
             </div>
 
-            {/* Severity filter */}
             {findings.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {severities.map((s) => (
@@ -262,7 +282,6 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
               </div>
             )}
 
-            {/* Finding cards */}
             <div className="space-y-2">
               {filtered.map((f, i) => (
                 <FindingCard key={f.id ?? i} finding={f} onRunFollowUp={onRunFollowUp} />
@@ -272,8 +291,7 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
               )}
             </div>
 
-            {/* Recommended next scans */}
-            {analysis.recommended_next_scans?.length > 0 && (
+            {analysis.recommended_next_scans && analysis.recommended_next_scans.length > 0 && (
               <div className="space-y-2">
                 <div className="text-[10px] uppercase text-terminal-muted font-semibold px-1">
                   Recommended Follow-up Scans
@@ -294,7 +312,6 @@ export default function AnalyticsPanel({ scanResults, isAnalyzing, rawStream, an
               </div>
             )}
 
-            {/* Disclaimer */}
             <div className="border border-yellow-900 bg-yellow-900/10 rounded p-2 text-[10px] text-yellow-400 flex gap-1.5">
               <TriangleAlert size={12} className="shrink-0 mt-0.5" />
               Only scan and test systems you own or have explicit written permission to test. Unauthorised scanning may be illegal.

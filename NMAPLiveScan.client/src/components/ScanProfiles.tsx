@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Zap, Search, Layers, Bug, ChevronDown, ChevronRight, Target, Plus, X, Edit2 } from "lucide-react";
+import type { ScanProfile, ProfileColor, ProfileIcon } from "../types";
 
-const DEFAULT_PROFILES = [
+const DEFAULT_PROFILES: ScanProfile[] = [
   {
     id: "quick",
     name: "Quick Scan",
@@ -22,8 +23,8 @@ const DEFAULT_PROFILES = [
     description: "Identifies software versions running on open ports.",
     flags: "-sV -T4 --version-intensity 5",
     flagDetails: [
-      { flag: "-sV",                  desc: "Probe open ports to determine service/version info" },
-      { flag: "-T4",                  desc: "Aggressive timing" },
+      { flag: "-sV",                   desc: "Probe open ports to determine service/version info" },
+      { flag: "-T4",                   desc: "Aggressive timing" },
       { flag: "--version-intensity 5", desc: "Medium probe intensity (0–9)" },
     ],
   },
@@ -63,8 +64,8 @@ const DEFAULT_PROFILES = [
     description: "Detects operating system via TCP/IP fingerprinting. Requires sudo.",
     flags: "-O --osscan-guess",
     flagDetails: [
-      { flag: "-O",              desc: "Enable OS detection" },
-      { flag: "--osscan-guess",  desc: "Guess OS more aggressively" },
+      { flag: "-O",             desc: "Enable OS detection" },
+      { flag: "--osscan-guess", desc: "Guess OS more aggressively" },
     ],
     requiresSudo: true,
   },
@@ -87,9 +88,9 @@ const DEFAULT_PROFILES = [
     description: "Scans common UDP ports (DNS, DHCP, SNMP…). Requires sudo.",
     flags: "-sU -p 53,67,68,69,123,161,162,500 -T4",
     flagDetails: [
-      { flag: "-sU",                                    desc: "UDP scan" },
-      { flag: "-p 53,67,68,69,123,161,162,500",        desc: "Common UDP service ports" },
-      { flag: "-T4",                                    desc: "Aggressive timing" },
+      { flag: "-sU",                              desc: "UDP scan" },
+      { flag: "-p 53,67,68,69,123,161,162,500",  desc: "Common UDP service ports" },
+      { flag: "-T4",                              desc: "Aggressive timing" },
     ],
     requiresSudo: true,
   },
@@ -108,14 +109,19 @@ const DEFAULT_PROFILES = [
   },
 ];
 
-const ICON_MAP = {
+const ICON_MAP: Record<ProfileIcon, React.ReactNode> = {
   zap:    <Zap    size={14} />,
   search: <Search size={14} />,
   layers: <Layers size={14} />,
   bug:    <Bug    size={14} />,
 };
 
-const COLOR_MAP = {
+interface ColorConfig {
+  badge: string;
+  dot: string;
+}
+
+const COLOR_MAP: Record<ProfileColor, ColorConfig> = {
   green:  { badge: "text-terminal-green  border-green-800  bg-green-900/20",  dot: "bg-terminal-green"  },
   cyan:   { badge: "text-terminal-cyan   border-cyan-800   bg-cyan-900/20",   dot: "bg-terminal-cyan"   },
   yellow: { badge: "text-terminal-yellow border-yellow-800 bg-yellow-900/20", dot: "bg-terminal-yellow" },
@@ -123,27 +129,35 @@ const COLOR_MAP = {
   purple: { badge: "text-terminal-purple border-purple-800 bg-purple-900/20", dot: "bg-terminal-purple" },
 };
 
-export default function ScanProfiles({ onApply }) {
+interface QuickTarget {
+  label: string;
+  value: string;
+}
+
+interface ScanProfilesProps {
+  onApply: (cmd: string) => void;
+}
+
+export default function ScanProfiles({ onApply }: ScanProfilesProps) {
   const [target, setTarget]               = useState("");
-  const [selectedProfile, setSelected]    = useState(null);
-  const [expandedProfile, setExpanded]    = useState(null);
-  const [customTargets, setCustomTargets] = useState([]);
+  const [selectedProfile, setSelected]    = useState<string | null>(null);
+  const [expandedProfile, setExpanded]    = useState<string | null>(null);
+  const [customTargets, setCustomTargets] = useState<string[]>([]);
   const [newTarget, setNewTarget]         = useState("");
   const [addingTarget, setAddingTarget]   = useState(false);
 
-  const buildCommand = (profile, tgt) => {
-    const t = tgt || target;
+  const buildCommand = (profile: ScanProfile, tgt?: string): string | null => {
+    const t = tgt ?? target;
     if (!t.trim()) return null;
     const sudo = profile.requiresSudo ? "sudo " : "";
     return `${sudo}nmap ${profile.flags} ${t.trim()}`;
   };
 
-  const handleApply = (profile, tgt) => {
+  const handleApply = (profile: ScanProfile, tgt?: string) => {
     const cmd = buildCommand(profile, tgt);
     if (cmd) {
       onApply(cmd);
     } else {
-      // Still fill in the command stub so user just needs to add target
       const sudo = profile.requiresSudo ? "sudo " : "";
       onApply(`${sudo}nmap ${profile.flags} `);
     }
@@ -159,7 +173,7 @@ export default function ScanProfiles({ onApply }) {
     setAddingTarget(false);
   };
 
-  const QUICK_TARGETS = [
+  const QUICK_TARGETS: QuickTarget[] = [
     { label: "scanme.nmap.org", value: "scanme.nmap.org" },
     { label: "localhost",        value: "127.0.0.1"       },
     { label: "Local subnet",     value: "192.168.1.0/24"  },
@@ -184,7 +198,6 @@ export default function ScanProfiles({ onApply }) {
           </button>
         </div>
 
-        {/* Quick-select chips */}
         <div className="flex flex-wrap gap-1.5">
           {QUICK_TARGETS.map((qt) => (
             <button
@@ -201,7 +214,6 @@ export default function ScanProfiles({ onApply }) {
           ))}
         </div>
 
-        {/* Add custom target inline */}
         {addingTarget && (
           <div className="flex items-center gap-1">
             <input
@@ -228,7 +240,6 @@ export default function ScanProfiles({ onApply }) {
           </div>
         )}
 
-        {/* Free-text override */}
         <div className="flex items-center gap-1 mt-1">
           <Edit2 size={11} className="text-terminal-muted shrink-0" />
           <input
@@ -246,9 +257,9 @@ export default function ScanProfiles({ onApply }) {
         <h3 className="text-xs uppercase font-semibold text-terminal-muted px-1">Scan Profiles</h3>
 
         {DEFAULT_PROFILES.map((profile) => {
-          const colors   = COLOR_MAP[profile.color] ?? COLOR_MAP.green;
-          const isOpen   = expandedProfile === profile.id;
-          const cmd      = buildCommand(profile, target);
+          const colors = COLOR_MAP[profile.color] ?? COLOR_MAP.green;
+          const isOpen = expandedProfile === profile.id;
+          const cmd    = buildCommand(profile, target);
 
           return (
             <div
@@ -259,9 +270,7 @@ export default function ScanProfiles({ onApply }) {
                   : "border-terminal-border bg-terminal-surface hover:border-terminal-muted"
               }`}
             >
-              {/* Card header row */}
               <div className="flex items-center gap-2 px-3 py-2">
-                {/* Expand toggle */}
                 <button
                   onClick={() => setExpanded(isOpen ? null : profile.id)}
                   className="text-terminal-muted hover:text-white transition-colors shrink-0"
@@ -269,7 +278,6 @@ export default function ScanProfiles({ onApply }) {
                   {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                 </button>
 
-                {/* Icon + name */}
                 <button
                   className="flex items-center gap-2 flex-1 text-left"
                   onClick={() => {
@@ -288,7 +296,6 @@ export default function ScanProfiles({ onApply }) {
                   </div>
                 </button>
 
-                {/* Apply button */}
                 <button
                   onClick={() => handleApply(profile)}
                   className={`shrink-0 text-xs px-2 py-1 rounded border font-medium transition-colors ${
@@ -296,18 +303,16 @@ export default function ScanProfiles({ onApply }) {
                       ? `${colors.badge} hover:opacity-80`
                       : "text-terminal-muted border-terminal-border hover:text-white"
                   }`}
-                  title={target ? `Run: ${cmd}` : "Select a target first (or click to fill flags only)"}
+                  title={target ? `Run: ${cmd ?? ""}` : "Select a target first (or click to fill flags only)"}
                 >
                   {target ? "Run ▶" : "Fill →"}
                 </button>
               </div>
 
-              {/* Expanded detail */}
               {isOpen && (
                 <div className="border-t border-terminal-border px-3 py-2 space-y-2 bg-terminal-bg/40">
                   <p className="text-xs text-terminal-muted">{profile.description}</p>
 
-                  {/* Flag breakdown */}
                   <div className="space-y-1">
                     {profile.flagDetails.map((fd) => (
                       <div key={fd.flag} className="flex items-start gap-2 text-xs">
@@ -319,7 +324,6 @@ export default function ScanProfiles({ onApply }) {
                     ))}
                   </div>
 
-                  {/* Preview command */}
                   <div className="bg-terminal-bg rounded p-2 font-mono text-xs">
                     <span className="text-terminal-muted">$ </span>
                     <span className="text-terminal-cyan">

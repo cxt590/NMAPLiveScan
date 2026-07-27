@@ -1,7 +1,13 @@
 import { Clock, Server, Activity, Download } from "lucide-react";
 import HostCard from "./HostCard";
+import type { NmapResults } from "../types";
 
-export default function ScanResults({ results }) {
+interface ScanResultsProps {
+  results: NmapResults;
+  compact?: boolean;
+}
+
+export default function ScanResults({ results }: ScanResultsProps) {
   if (!results) return null;
 
   const { scanner, version, args, start_time, scan_info, hosts, run_stats } = results;
@@ -34,8 +40,8 @@ export default function ScanResults({ results }) {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Stat label="Scanner" value={`${scanner} ${version}`} color="cyan" />
-          <Stat label="Hosts Up" value={run_stats?.hosts_up ?? "?"} color="green" />
-          <Stat label="Hosts Down" value={run_stats?.hosts_down ?? "?"} color="red" />
+          <Stat label="Hosts Up" value={String(run_stats?.hosts_up ?? "?")} color="green" />
+          <Stat label="Hosts Down" value={String(run_stats?.hosts_down ?? "?")} color="red" />
           <Stat label="Duration" value={`${run_stats?.elapsed ?? "?"}s`} color="yellow" />
         </div>
 
@@ -64,7 +70,7 @@ export default function ScanResults({ results }) {
             <Server size={12} /> {hosts.length} host{hosts.length !== 1 ? "s" : ""} discovered
           </div>
           {hosts.map((host, i) => (
-            <HostCard key={i} host={host} index={i} />
+            <HostCard key={i} host={host} />
           ))}
         </div>
       )}
@@ -72,8 +78,16 @@ export default function ScanResults({ results }) {
   );
 }
 
-function Stat({ label, value, color }) {
-  const colorMap = {
+type StatColor = "cyan" | "green" | "red" | "yellow";
+
+interface StatProps {
+  label: string;
+  value: string;
+  color: StatColor;
+}
+
+function Stat({ label, value, color }: StatProps) {
+  const colorMap: Record<StatColor, string> = {
     cyan: "text-terminal-cyan",
     green: "text-terminal-green",
     red: "text-terminal-red",

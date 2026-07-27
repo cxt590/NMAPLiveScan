@@ -1,16 +1,25 @@
 import { useState, useRef, useCallback } from "react";
+import type { TerminalLine, NmapResults, BackendStatus } from "../types";
+
+interface ScanEventData {
+  type: "output" | "error" | "exit" | "results";
+  line?: string;
+  message?: string;
+  code?: number;
+  data?: NmapResults;
+}
 
 export function useScanner() {
-  const [terminalLines, setTerminalLines] = useState([]);
-  const [scanResults, setScanResults]     = useState(null);
-  const [isScanning, setIsScanning]       = useState(false);
-  const [backendStatus, setBackendStatus] = useState("unknown");
-  const [lastCommand, setLastCommand]     = useState("");   // ← NEW
-  const eventSourceRef = useRef(null);
+  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
+  const [scanResults, setScanResults] = useState<NmapResults | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>("unknown");
+  const [lastCommand, setLastCommand] = useState("");
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const checkBackend = useCallback(async () => {
     try {
-      const res  = await fetch("/api/health");
+      const res = await fetch("/api/health");
       const data = await res.json();
       setBackendStatus(data.nmap_available ? "ok" : "no-nmap");
       return data;
@@ -20,31 +29,31 @@ export function useScanner() {
     }
   }, []);
 
-  const appendLine = useCallback((line) => {
+  const appendLine = useCallback((line: TerminalLine) => {
     setTerminalLines((prev) => [...prev, line]);
   }, []);
 
   const runScan = useCallback(
-    (command) => {
+    (command: string) => {
       if (isScanning) return;
 
       setScanResults(null);
       setIsScanning(true);
-      setLastCommand(command);      // ← NEW
+      setLastCommand(command);
 
       appendLine({ type: "command", text: command });
 
       const encoded = encodeURIComponent(command);
-      const es      = new EventSource(`/api/scan?command=${encoded}`);
+      const es = new EventSource(`/api/scan?command=${encoded}`);
       eventSourceRef.current = es;
 
-      es.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+      es.onmessage = (event: MessageEvent) => {
+        const data: ScanEventData = JSON.parse(event.data as string);
 
         if (data.type === "output") {
-          appendLine({ type: "output", text: data.line });
+          appendLine({ type: "output", text: data.line ?? "" });
         } else if (data.type === "error") {
-          appendLine({ type: "error", text: `Error: ${data.message}` });
+          appendLine({ type: "error", text: `Error: ${data.message ?? ""}` });
           es.close();
           setIsScanning(false);
         } else if (data.type === "exit") {
@@ -53,7 +62,7 @@ export function useScanner() {
             text: `\n[Process exited with code ${data.code}]`,
           });
         } else if (data.type === "results") {
-          setScanResults(data.data);
+          setScanResults(data.data ?? null);
           es.close();
           setIsScanning(false);
         }
@@ -86,7 +95,7 @@ export function useScanner() {
     scanResults,
     isScanning,
     backendStatus,
-    lastCommand,        // ← NEW
+    lastCommand,
     runScan,
     cancelScan,
     clearTerminal,

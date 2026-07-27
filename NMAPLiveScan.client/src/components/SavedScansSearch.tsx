@@ -1,29 +1,29 @@
 import { useState, useMemo } from "react";
 import { Search, X, Filter } from "lucide-react";
+import type { SavedScan } from "../types";
 
 const SCAN_TYPES = [
   { label: "Any type", value: "" },
-  { label: "Quick (-F)",         value: "-F" },
-  { label: "Service (-sV)",      value: "-sV" },
-  { label: "Full port (-p-)",    value: "-p-" },
+  { label: "Quick (-F)",           value: "-F" },
+  { label: "Service (-sV)",        value: "-sV" },
+  { label: "Full port (-p-)",      value: "-p-" },
   { label: "Vuln (--script=vuln)", value: "--script=vuln" },
-  { label: "OS detect (-O)",     value: "-O" },
-  { label: "Ping sweep (-sn)",   value: "-sn" },
-  { label: "UDP (-sU)",          value: "-sU" },
-  { label: "Aggressive (-A)",    value: "-A" },
+  { label: "OS detect (-O)",       value: "-O" },
+  { label: "Ping sweep (-sn)",     value: "-sn" },
+  { label: "UDP (-sU)",            value: "-sU" },
+  { label: "Aggressive (-A)",      value: "-A" },
 ];
 
-export function useSavedScansFilter(savedScans) {
-  const [query,       setQuery]       = useState("");
-  const [scanType,    setScanType]    = useState("");
-  const [portFilter,  setPortFilter]  = useState("");
+export function useSavedScansFilter(savedScans: SavedScan[]) {
+  const [query,      setQuery]      = useState("");
+  const [scanType,   setScanType]   = useState("");
+  const [portFilter, setPortFilter] = useState("");
 
   const filtered = useMemo(() => {
     const q  = query.trim().toLowerCase();
     const pf = portFilter.trim();
 
     return savedScans.filter((scan) => {
-      // Text search: label, command, IPs, hostnames
       if (q) {
         const targets = [
           scan.label,
@@ -36,10 +36,8 @@ export function useSavedScansFilter(savedScans) {
         if (!targets.includes(q)) return false;
       }
 
-      // Scan type filter
       if (scanType && !scan.command.includes(scanType)) return false;
 
-      // Port filter
       if (pf) {
         const allPorts = (scan.results.hosts ?? [])
           .flatMap((h) => h.ports ?? [])
@@ -53,12 +51,25 @@ export function useSavedScansFilter(savedScans) {
 
   return {
     filtered,
-    query,       setQuery,
-    scanType,    setScanType,
-    portFilter,  setPortFilter,
+    query,      setQuery,
+    scanType,   setScanType,
+    portFilter, setPortFilter,
     hasFilters: !!(query || scanType || portFilter),
     clearFilters: () => { setQuery(""); setScanType(""); setPortFilter(""); },
   };
+}
+
+interface SavedScansSearchProps {
+  query: string;
+  setQuery: (v: string) => void;
+  scanType: string;
+  setScanType: (v: string) => void;
+  portFilter: string;
+  setPortFilter: (v: string) => void;
+  hasFilters: boolean;
+  clearFilters: () => void;
+  totalCount: number;
+  filteredCount: number;
 }
 
 export default function SavedScansSearch({
@@ -67,7 +78,7 @@ export default function SavedScansSearch({
   portFilter, setPortFilter,
   hasFilters, clearFilters,
   totalCount, filteredCount,
-}) {
+}: SavedScansSearchProps) {
   const [showFilters, setShowFilters] = useState(false);
 
   return (

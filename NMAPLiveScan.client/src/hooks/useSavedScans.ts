@@ -1,18 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
+import type { SavedScan, NmapResults, NmapAddress, NmapHostname } from "../types";
 
 const STORAGE_KEY = "nmap_saved_scans";
 const MAX_SAVED = 50;
 
-function loadFromStorage() {
+function loadFromStorage(): SavedScan[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? (JSON.parse(raw) as SavedScan[]) : [];
   } catch {
     return [];
   }
 }
 
-function saveToStorage(scans) {
+function saveToStorage(scans: SavedScan[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(scans));
   } catch {
@@ -21,18 +22,16 @@ function saveToStorage(scans) {
 }
 
 export function useSavedScans() {
-  const [savedScans, setSavedScans] = useState(loadFromStorage);
-  // Up to 2 scan IDs selected for side-by-side comparison
-  const [compareIds, setCompareIds] = useState([]);
+  const [savedScans, setSavedScans] = useState<SavedScan[]>(loadFromStorage);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
 
-  // Persist on every change
   useEffect(() => {
     saveToStorage(savedScans);
   }, [savedScans]);
 
   /** Save a completed scan result. Returns the new entry. */
-  const saveScan = useCallback((results, command) => {
-    const entry = {
+  const saveScan = useCallback((results: NmapResults, command?: string): SavedScan => {
+    const entry: SavedScan = {
       id: `scan_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       savedAt: new Date().toISOString(),
       command: command ?? results.args ?? "",
@@ -46,14 +45,14 @@ export function useSavedScans() {
   }, []);
 
   /** Rename a saved scan */
-  const renameScan = useCallback((id, newLabel) => {
+  const renameScan = useCallback((id: string, newLabel: string) => {
     setSavedScans((prev) =>
       prev.map((s) => (s.id === id ? { ...s, label: newLabel } : s))
     );
   }, []);
 
   /** Delete one scan */
-  const deleteScan = useCallback((id) => {
+  const deleteScan = useCallback((id: string) => {
     setSavedScans((prev) => prev.filter((s) => s.id !== id));
     setCompareIds((prev) => prev.filter((cid) => cid !== id));
   }, []);
@@ -65,7 +64,7 @@ export function useSavedScans() {
   }, []);
 
   /** Toggle a scan in/out of the comparison set (max 2) */
-  const toggleCompare = useCallback((id) => {
+  const toggleCompare = useCallback((id: string) => {
     setCompareIds((prev) => {
       if (prev.includes(id)) return prev.filter((cid) => cid !== id);
       if (prev.length >= 2) return [prev[1], id]; // slide window
@@ -87,15 +86,17 @@ export function useSavedScans() {
   }, [savedScans]);
 
   /** Import from a JSON file (merges, de-dupes by id) */
-  const importFile = useCallback((file) => {
+  const importFile = useCallback((file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = (e: ProgressEvent<FileReader>) => {
       try {
-        const imported = JSON.parse(e.target.result);
+        const imported = JSON.parse(e.target?.result as string) as unknown[];
         if (!Array.isArray(imported)) return;
         setSavedScans((prev) => {
           const existingIds = new Set(prev.map((s) => s.id));
-          const newOnes = imported.filter((s) => s.id && !existingIds.has(s.id));
+          const newOnes = (imported as SavedScan[]).filter(
+            (s) => s.id && !existingIds.has(s.id)
+          );
           return [...newOnes, ...prev].slice(0, MAX_SAVED);
         });
       } catch {
@@ -106,11 +107,12 @@ export function useSavedScans() {
   }, []);
 
   const getById = useCallback(
-    (id) => savedScans.find((s) => s.id === id) ?? null,
+    (id: string): SavedScan | null =>
+      savedScans.find((s) => s.id === id) ?? null,
     [savedScans]
   );
 
-  const compareScans = compareIds.map(getById).filter(Boolean);
+  const compareScans = compareIds.map(getById).filter((s): s is SavedScan => s !== null);
 
   return {
     savedScans,
@@ -128,17 +130,16 @@ export function useSavedScans() {
 }
 
 // ── helpers ──────────────────────────────────────────────
-function deriveLabel(results) {
+function deriveLabel(results: NmapResults): string {
   const hosts = results.hosts ?? [];
   if (hosts.length === 1) {
     const ip = hosts[0].addresses?.find(
-      (a) => a.addrtype === "ipv4" || a.addrtype === "ipv6"
+      (a: NmapAddress) => a.addrtype === "ipv4" || a.addrtype === "ipv6"
     )?.addr;
-    const hn = hosts[0].hostnames?.[0]?.name;
-    return hn || ip || "1 host";
+    const hn = hosts[0].hostnames?.[0] as NmapHostname | undefined;
+    return hn?.name ?? ip ?? "1 host";
   }
   if (hosts.length > 1) return `${hosts.length} hosts`;
-  // Fall back to target from the args string
   const parts = (results.args ?? "").split(" ");
   return parts[parts.length - 1] || "scan";
 }

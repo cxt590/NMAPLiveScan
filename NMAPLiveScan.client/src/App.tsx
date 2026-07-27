@@ -12,6 +12,7 @@ import AnalyticsPanel  from "./components/AnalyticsPanel";
 import { useScanner }    from "./hooks/useScanner";
 import { useSavedScans } from "./hooks/useSavedScans";
 import { useAnalytics }  from "./hooks/useAnalytics";
+import type { NmapResults } from "./types";
 
 export default function App() {
   const {
@@ -31,16 +32,15 @@ export default function App() {
     analyze, cancel: cancelAnalysis, reset: resetAnalysis,
   } = useAnalytics();
 
-  const [activeTab,      setActiveTab]      = useState("terminal");
-  const [profilesOpen,   setProfilesOpen]   = useState(true);
-  const [savedOpen,      setSavedOpen]      = useState(true);
-  const [analyticsOpen,  setAnalyticsOpen]  = useState(false);
-  const [pendingCommand, setPendingCommand] = useState(null);
-  const [loadedResults,  setLoadedResults]  = useState(null);
-  // Which results the analytics panel is targeting
-  const [analyticsTarget, setAnalyticsTarget] = useState(null);
+  const [activeTab,       setActiveTab]       = useState("terminal");
+  const [profilesOpen,    setProfilesOpen]    = useState(true);
+  const [savedOpen,       setSavedOpen]       = useState(true);
+  const [analyticsOpen,   setAnalyticsOpen]   = useState(false);
+  const [pendingCommand,  setPendingCommand]  = useState<string | null>(null);
+  const [loadedResults,   setLoadedResults]   = useState<NmapResults | null>(null);
+  const [analyticsTarget, setAnalyticsTarget] = useState<NmapResults | null>(null);
 
-  useEffect(() => { checkBackend(); }, [checkBackend]);
+  useEffect(() => { void checkBackend(); }, [checkBackend]);
 
   useEffect(() => {
     if (scanResults) {
@@ -51,32 +51,31 @@ export default function App() {
     }
   }, [scanResults]); // eslint-disable-line
 
-  const handleProfileApply = useCallback((cmd) => {
+  const handleProfileApply = useCallback((cmd: string) => {
     setPendingCommand(cmd);
     if (!cmd.trim().endsWith(" ") && !cmd.includes("<")) {
       setTimeout(() => runScan(cmd), 80);
     }
   }, [runScan]);
 
-  const handleRerun = useCallback((cmd) => {
+  const handleRerun = useCallback((cmd: string) => {
     setActiveTab("terminal");
     setLoadedResults(null);
     runScan(cmd);
   }, [runScan]);
 
-  const handleLoadSaved = useCallback((results) => {
+  const handleLoadSaved = useCallback((results: NmapResults) => {
     setLoadedResults(results);
     setActiveTab("results");
     setAnalyticsTarget(results);
   }, []);
 
-  // Follow-up command from analytics panel → push into terminal
-  const handleFollowUp = useCallback((cmd) => {
+  const handleFollowUp = useCallback((cmd: string) => {
     setPendingCommand(cmd);
     setActiveTab("terminal");
   }, []);
 
-  const handleOpenAnalytics = useCallback((results) => {
+  const handleOpenAnalytics = useCallback((results: NmapResults | null) => {
     setAnalyticsTarget(results ?? analyticsTarget);
     setAnalyticsOpen(true);
     resetAnalysis();
@@ -107,7 +106,6 @@ export default function App() {
         <div className="flex items-center gap-3">
           <StatusBadge />
 
-          {/* Analytics toggle */}
           <button
             onClick={() => { setAnalyticsOpen((v) => !v); if (!analyticsOpen && displayResults) setAnalyticsTarget(displayResults); }}
             className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded border ${
@@ -117,10 +115,9 @@ export default function App() {
           >
             <Brain size={14} />
             <span className="hidden sm:inline">AI Analysis</span>
-            {(isAnalyzing) && <span className="w-1.5 h-1.5 rounded-full bg-terminal-purple animate-pulse" />}
+            {isAnalyzing && <span className="w-1.5 h-1.5 rounded-full bg-terminal-purple animate-pulse" />}
           </button>
 
-          {/* Saved scans toggle */}
           <button
             onClick={() => setSavedOpen((v) => !v)}
             className={`flex items-center gap-1 text-xs transition-colors ${savedOpen ? "text-terminal-purple" : "text-terminal-muted hover:text-white"}`}

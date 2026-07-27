@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Monitor, Globe, Shield, Clock } from "lucide-react";
+import type { NmapHost } from "../types";
 
-const STATE_COLORS = {
+const STATE_COLORS: Record<string, string> = {
   open: "text-terminal-green bg-green-900/30 border-green-800",
   closed: "text-terminal-red bg-red-900/30 border-red-800",
   filtered: "text-terminal-yellow bg-yellow-900/30 border-yellow-800",
 };
 
-export default function HostCard({ host, index }) {
+interface HostCardProps {
+  host: NmapHost;
+}
+
+export default function HostCard({ host }: HostCardProps) {
   const [expanded, setExpanded] = useState(true);
-  const [expandedPorts, setExpandedPorts] = useState({});
+  const [expandedPorts, setExpandedPorts] = useState<Record<string, boolean>>({});
 
   const ipAddr = host.addresses.find((a) => a.addrtype === "ipv4" || a.addrtype === "ipv6");
   const macAddr = host.addresses.find((a) => a.addrtype === "mac");
@@ -18,7 +23,7 @@ export default function HostCard({ host, index }) {
   const filteredPorts = host.ports.filter((p) => p.state === "filtered");
   const closedPorts = host.ports.filter((p) => p.state === "closed");
 
-  const togglePort = (portid) => {
+  const togglePort = (portid: string) => {
     setExpandedPorts((prev) => ({ ...prev, [portid]: !prev[portid] }));
   };
 
@@ -130,7 +135,7 @@ export default function HostCard({ host, index }) {
                           {[port.service?.product, port.service?.version, port.service?.extrainfo]
                             .filter(Boolean)
                             .join(" ")}
-                          {port.service?.cpe?.length > 0 && (
+                          {port.service?.cpe && port.service.cpe.length > 0 && (
                             <span className="ml-2 text-terminal-purple opacity-70">{port.service.cpe[0]}</span>
                           )}
                           {port.scripts.length > 0 && (

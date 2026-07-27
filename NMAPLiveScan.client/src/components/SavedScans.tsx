@@ -6,17 +6,31 @@ import {
 } from "lucide-react";
 import ScanResults from "./ScanResults";
 import SavedScansSearch, { useSavedScansFilter } from "./SavedScansSearch";
+import type { SavedScan, NmapResults, NmapPort } from "../types";
+
+interface SavedScansProps {
+  savedScans: SavedScan[];
+  compareIds: string[];
+  compareScans: SavedScan[];
+  onDelete: (id: string) => void;
+  onClearAll: () => void;
+  onRename: (id: string, newLabel: string) => void;
+  onToggleCompare: (id: string) => void;
+  onExportAll: () => void;
+  onImport: (file: File) => void;
+  onLoad: (results: NmapResults) => void;
+}
 
 export default function SavedScans({
   savedScans, compareIds, compareScans,
   onDelete, onClearAll, onRename, onToggleCompare,
   onExportAll, onImport, onLoad,
-}) {
-  const [view,       setView]       = useState("list");
-  const [expandedId, setExpandedId] = useState(null);
-  const [editingId,  setEditingId]  = useState(null);
+}: SavedScansProps) {
+  const [view,       setView]       = useState<"list" | "compare">("list");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId,  setEditingId]  = useState<string | null>(null);
   const [editLabel,  setEditLabel]  = useState("");
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     filtered, query, setQuery,
@@ -25,9 +39,13 @@ export default function SavedScans({
     hasFilters, clearFilters,
   } = useSavedScansFilter(savedScans);
 
-  const handleRenameStart  = (scan) => { setEditingId(scan.id); setEditLabel(scan.label); };
-  const handleRenameCommit = () => { if (editLabel.trim()) onRename(editingId, editLabel.trim()); setEditingId(null); };
-  const handleFileImport   = (e)  => { const f = e.target.files?.[0]; if (f) onImport(f); e.target.value = ""; };
+  const handleRenameStart  = (scan: SavedScan) => { setEditingId(scan.id); setEditLabel(scan.label); };
+  const handleRenameCommit = () => { if (editLabel.trim()) onRename(editingId!, editLabel.trim()); setEditingId(null); };
+  const handleFileImport   = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) onImport(f);
+    e.target.value = "";
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -62,7 +80,6 @@ export default function SavedScans({
         </div>
       </div>
 
-      {/* Search + filters */}
       {savedScans.length > 0 && (
         <SavedScansSearch
           query={query} setQuery={setQuery}
@@ -73,7 +90,6 @@ export default function SavedScans({
         />
       )}
 
-      {/* Body */}
       <div className="flex-1 overflow-y-auto min-h-0">
         {savedScans.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-terminal-muted text-xs px-4 text-center">
@@ -82,7 +98,7 @@ export default function SavedScans({
             <p className="opacity-60">Scans are saved automatically when they complete.</p>
           </div>
         ) : view === "compare" && compareScans.length === 2 ? (
-          <CompareView scans={compareScans} onClose={() => setView("list")} />
+          <CompareView scans={compareScans as [SavedScan, SavedScan]} onClose={() => setView("list")} />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-terminal-muted text-xs px-4 text-center">
             <p>No scans match your filters.</p>
@@ -152,8 +168,19 @@ export default function SavedScans({
   );
 }
 
-// ── Comparison view (unchanged from previous version) ───────────────────────
-function CompareView({ scans, onClose }) {
+// ── Comparison view ───────────────────────────────────────────────────────────
+
+interface CompareViewProps {
+  scans: [SavedScan, SavedScan];
+  onClose: () => void;
+}
+
+interface PortMapEntry {
+  state: string;
+  service: string;
+}
+
+function CompareView({ scans, onClose }: CompareViewProps) {
   const [a, b] = scans;
   const portsA = buildPortMap(a.results);
   const portsB = buildPortMap(b.results);
@@ -169,7 +196,7 @@ function CompareView({ scans, onClose }) {
       </div>
       <div className="overflow-y-auto flex-1 p-3 space-y-4">
         <div className="grid grid-cols-2 gap-2">
-          {[a, b].map((scan, i) => (
+          {([a, b] as SavedScan[]).map((scan, i) => (
             <div key={scan.id} className={`rounded border p-2 text-xs space-y-1 ${i === 0 ? "border-terminal-cyan bg-cyan-900/10" : "border-terminal-purple bg-purple-900/10"}`}>
               <div className={`font-semibold ${i === 0 ? "text-terminal-cyan" : "text-terminal-purple"}`}>{i === 0 ? "A" : "B"} — {scan.label}</div>
               <div className="text-terminal-muted">{formatRelative(scan.savedAt)}</div>
@@ -220,14 +247,15 @@ function CompareView({ scans, onClose }) {
   );
 }
 
-function StateChip({ state }) {
+function StateChip({ state }: { state?: string }) {
   if (!state) return <span className="text-terminal-muted opacity-40">—</span>;
-  const c = { open: "text-terminal-green", closed: "text-terminal-red", filtered: "text-terminal-yellow" };
+  const c: Record<string, string> = { open: "text-terminal-green", closed: "text-terminal-red", filtered: "text-terminal-yellow" };
   return <span className={`font-mono ${c[state] ?? "text-gray-400"}`}>{state}</span>;
 }
 
-function OsDiff({ a, b }) {
-  const osA = a.hosts?.[0]?.os?.[0]?.name, osB = b.hosts?.[0]?.os?.[0]?.name;
+function OsDiff({ a, b }: { a: NmapResults; b: NmapResults }) {
+  const osA = a.hosts?.[0]?.os?.[0]?.name;
+  const osB = b.hosts?.[0]?.os?.[0]?.name;
   if (!osA && !osB) return null;
   return (
     <div>
@@ -240,15 +268,20 @@ function OsDiff({ a, b }) {
   );
 }
 
-function buildPortMap(results) {
-  const map = {};
-  for (const host of results.hosts ?? [])
-    for (const port of host.ports ?? [])
-      map[`${port.portid}/${port.protocol}`] = { state: port.state, service: [port.service?.name, port.service?.product, port.service?.version].filter(Boolean).join(" ") };
+function buildPortMap(results: NmapResults): Record<string, PortMapEntry> {
+  const map: Record<string, PortMapEntry> = {};
+  for (const host of results.hosts ?? []) {
+    for (const port of host.ports ?? []) {
+      map[`${port.portid}/${port.protocol}`] = {
+        state: port.state,
+        service: [port.service?.name, port.service?.product, port.service?.version].filter(Boolean).join(" "),
+      };
+    }
+  }
   return map;
 }
 
-function formatRelative(iso) {
+function formatRelative(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
   if (m < 1) return "just now";
   if (m < 60) return `${m}m ago`;

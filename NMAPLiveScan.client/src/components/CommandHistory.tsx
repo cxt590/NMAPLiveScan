@@ -1,6 +1,12 @@
 import { History, ChevronRight } from "lucide-react";
+import type { TerminalLine } from "../types";
 
-export default function CommandHistory({ lines, onRerun }) {
+interface CommandHistoryProps {
+  lines: TerminalLine[];
+  onRerun: (cmd: string) => void;
+}
+
+export default function CommandHistory({ lines, onRerun }: CommandHistoryProps) {
   const commands = lines.filter((l) => l.type === "command").map((l) => l.text);
   const unique = [...new Set(commands)].reverse();
 

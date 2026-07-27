@@ -21,6 +21,7 @@ export interface NmapService {
   product?: string;
   version?: string;
   extrainfo?: string;
+  tunnel?: string;
   cpe?: string[];
 }
 
@@ -28,13 +29,23 @@ export interface NmapPort {
   portid: string;
   protocol: string;
   state: "open" | "closed" | "filtered" | string;
+  reason?: string;
   service?: NmapService;
   scripts: NmapScript[];
+}
+
+export interface NmapOsClass {
+  type?: string;
+  vendor?: string;
+  osfamily?: string;
+  osgen?: string;
+  accuracy?: string;
 }
 
 export interface NmapOs {
   name: string;
   accuracy: string;
+  osclass?: NmapOsClass[];
 }
 
 export interface NmapUptime {
@@ -49,6 +60,7 @@ export interface NmapHost {
   ports: NmapPort[];
   os: NmapOs[];
   uptime?: NmapUptime;
+  distance?: string | number;
   scripts: NmapScript[];
 }
 
@@ -56,14 +68,17 @@ export interface NmapScanInfo {
   type: string;
   protocol: string;
   num_services: string;
+  services?: string;
 }
 
 export interface NmapRunStats {
   hosts_up?: string | number;
   hosts_down?: string | number;
+  hosts_total?: string | number;
   elapsed?: string;
   end_time?: string;
   summary?: string;
+  exit?: string;
 }
 
 export interface NmapResults {

@@ -64,8 +64,8 @@ def run_nmap_scan(command: str):
             try:
                 results = parse_nmap_xml(xml_path)
                 yield {"type": "results", "data": results}
-            except Exception as e:
-                yield {"type": "error", "message": f"Failed to parse results: {e}"}
+            except Exception:  # noqa: BLE001
+                yield {"type": "error", "message": "Failed to parse scan results."}
         else:
             yield {"type": "error", "message": "No XML output generated"}
 

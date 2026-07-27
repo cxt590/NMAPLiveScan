@@ -63,10 +63,10 @@ pytest
 ### Required
 - **No API key is required** for core Nmap scanning.
 - Local machine access with permission to run `nmap`.
-- Elevated privileges may be required for some scan types (for example SYN/raw-socket scans).
+- Elevated privileges may be required for some scan types (for example, SYN/raw-socket scans).
 
 ### Optional / Feature-dependent
-- **AI Analysis (`/api/analyze`)**: requires whatever provider credentials your backend analysis integration uses (for example a model provider API key).  
+- **AI Analysis (`/api/analyze`)**: requires whatever provider credentials your backend analysis integration uses (for example, a model provider API key).  
   The specific key name and provider depend on your backend implementation/environment.
 
 ### Security and Legal
